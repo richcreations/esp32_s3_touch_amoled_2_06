@@ -122,6 +122,9 @@ i2c_master_bus_handle_t bsp_i2c_get_handle(void);
 /** Initialize AXP2101 and configure default rails/measurements */
 esp_err_t bsp_power_init(void);
 
+/** Deinit AXP2101: stop monitor task and release resources */
+esp_err_t bsp_power_deinit(void);
+
 /** Optional: invoke inside your PMU IRQ GPIO ISR handler */
 void bsp_power_isr_handler(void);
 
@@ -211,7 +214,7 @@ typedef struct {
 /**
  * @brief Init audio
  *
- * @note There is no deinit audio function. Users can free audio resources by calling i2s_del_channel()
+ * @note To release audio resources call bsp_audio_deinit()
  * @warning The type of i2s_config param is depending on IDF version.
  * @param[in]  i2s_config I2S configuration. Pass NULL to use default values (Mono, duplex, 16bit, 22050 Hz)
  * @return
@@ -223,6 +226,13 @@ typedef struct {
  *      - ESP_ERR_INVALID_STATE This channel has not initialized or already started
  */
 esp_err_t bsp_audio_init(const i2s_std_config_t *i2s_config);
+
+/**
+ * @brief Deinit audio and release I2S channels
+ *
+ * @return ESP_OK on success
+ */
+esp_err_t bsp_audio_deinit(void);
 
 /**
  * @brief Initialize speaker codec device

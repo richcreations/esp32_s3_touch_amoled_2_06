@@ -289,13 +289,29 @@ err:
     if (i2s_tx_chan)
     {
         i2s_del_channel(i2s_tx_chan);
+        i2s_tx_chan = NULL;
     }
     if (i2s_rx_chan)
     {
         i2s_del_channel(i2s_rx_chan);
+        i2s_rx_chan = NULL;
     }
 
     return ret;
+}
+
+esp_err_t bsp_audio_deinit(void)
+{
+    if (i2s_tx_chan) {
+        i2s_del_channel(i2s_tx_chan);
+        i2s_tx_chan = NULL;
+    }
+    if (i2s_rx_chan) {
+        i2s_del_channel(i2s_rx_chan);
+        i2s_rx_chan = NULL;
+    }
+    i2s_data_if = NULL;
+    return ESP_OK;
 }
 
 esp_codec_dev_handle_t bsp_audio_codec_speaker_init(void)
@@ -591,7 +607,7 @@ esp_err_t bsp_display_new(const bsp_display_config_t *config, esp_lcd_panel_hand
                                                                  BSP_LCD_DATA2,
                                                                  BSP_LCD_DATA3,
                                                                  (BSP_LCD_H_RES * 16 * BSP_LCD_BITS_PER_PIXEL / 8));
-    ESP_ERROR_CHECK(spi_bus_initialize(BSP_LCD_SPI_NUM, &buscfg, SPI_DMA_CH_AUTO));
+    ESP_RETURN_ON_ERROR(spi_bus_initialize(BSP_LCD_SPI_NUM, &buscfg, SPI_DMA_CH_AUTO), TAG, "SPI bus init failed");
 
     // Use a mutable IO config so we can tune the SPI transaction queue depth
     esp_lcd_panel_io_spi_config_t io_config = SH8601_PANEL_IO_QSPI_CONFIG(BSP_LCD_CS, NULL, NULL);
@@ -607,18 +623,18 @@ esp_err_t bsp_display_new(const bsp_display_config_t *config, esp_lcd_panel_hand
             .use_qspi_interface = 1,
         },
     };
-    ESP_ERROR_CHECK(esp_lcd_new_panel_io_spi((esp_lcd_spi_bus_handle_t)BSP_LCD_SPI_NUM, &io_config, &io_handle));
+    ESP_RETURN_ON_ERROR(esp_lcd_new_panel_io_spi((esp_lcd_spi_bus_handle_t)BSP_LCD_SPI_NUM, &io_config, &io_handle), TAG, "LCD panel IO init failed");
     const esp_lcd_panel_dev_config_t panel_config = {
         .reset_gpio_num = BSP_LCD_RST,
         .rgb_ele_order = LCD_RGB_ELEMENT_ORDER_RGB,
         .bits_per_pixel = BSP_LCD_BITS_PER_PIXEL,
         .vendor_config = &vendor_config,
     };
-    ESP_ERROR_CHECK(esp_lcd_new_panel_sh8601(io_handle, &panel_config, &panel_handle));
-    esp_lcd_panel_reset(panel_handle);
-    esp_lcd_panel_init(panel_handle);
-    esp_lcd_panel_set_gap(panel_handle, 0x16, 0);
-    esp_lcd_panel_disp_on_off(panel_handle, true);
+    ESP_RETURN_ON_ERROR(esp_lcd_new_panel_sh8601(io_handle, &panel_config, &panel_handle), TAG, "LCD panel create failed");
+    ESP_RETURN_ON_ERROR(esp_lcd_panel_reset(panel_handle), TAG, "panel reset failed");
+    ESP_RETURN_ON_ERROR(esp_lcd_panel_init(panel_handle), TAG, "panel init failed");
+    ESP_RETURN_ON_ERROR(esp_lcd_panel_set_gap(panel_handle, 0x16, 0), TAG, "panel set_gap failed");
+    ESP_RETURN_ON_ERROR(esp_lcd_panel_disp_on_off(panel_handle, true), TAG, "panel disp_on failed");
 
     if (ret_panel)
     {
@@ -655,7 +671,7 @@ esp_err_t bsp_touch_new(const bsp_touch_config_t *config, esp_lcd_touch_handle_t
     esp_lcd_panel_io_handle_t tp_io_handle = NULL;
     esp_lcd_panel_io_i2c_config_t tp_io_config = ESP_LCD_TOUCH_IO_I2C_FT5x06_CONFIG();
     tp_io_config.scl_speed_hz = CONFIG_I2C_MASTER_FREQUENCY;
-    ESP_RETURN_ON_ERROR(esp_lcd_new_panel_io_i2c(i2c_handle, &tp_io_config, &tp_io_handle), TAG, "");
+    ESP_RETURN_ON_ERROR(esp_lcd_new_panel_io_i2c(i2c_handle, &tp_io_config, &tp_io_handle), TAG, "touch panel IO init failed");
     return esp_lcd_touch_new_i2c_ft5x06(tp_io_handle, &tp_cfg, ret_touch);
 }
 
@@ -731,6 +747,9 @@ static lv_display_t *bsp_display_lcd_init()
 #if LVGL_VERSION_MAJOR >= 9
     lv_display_add_event_cb(disp, rounder_event_cb, LV_EVENT_INVALIDATE_AREA, NULL);
 #else
+    // LVGL 8 only: accesses internal lv_disp_t/driver structs not in the public API.
+    // Dead code under the locked LVGL 9.x dependency; kept for reference if the version
+    // constraint is ever relaxed to support LVGL 8.
     lv_disp_t *disp_v8 = (lv_disp_t *)disp;
     if (disp_v8 && disp_v8->driver) {
         disp_v8->driver->rounder_cb = bsp_lvgl_rounder_cb;

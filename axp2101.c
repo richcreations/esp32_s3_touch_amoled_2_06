@@ -5,6 +5,7 @@
 #include "sdkconfig.h"
 #include "esp_event.h"
 #include "driver/i2c_master.h"
+#include "freertos/semphr.h"
 #include "bsp/esp32_s3_touch_amoled_2_06.h"
 #include "axp2101.h"
 
@@ -12,11 +13,12 @@ static const char *TAG = "AXP2101";
 
 static i2c_master_dev_handle_t s_pmu_dev = NULL;
 static uint8_t s_pmu_addr = AXP2101_I2C_ADDR_PRIMARY;
-static bool s_ready = false;
+static volatile bool s_ready = false;
 static TaskHandle_t s_mon_task = NULL;
 static uint32_t s_poll_ms = 500;
 static bsp_power_event_cb_t s_cb = NULL;
 static void *s_cb_user = NULL;
+static SemaphoreHandle_t s_mutex = NULL;
 
 static esp_err_t pmu_add_on_bus(void)
 {
@@ -59,14 +61,17 @@ static esp_err_t pmu_add_on_bus(void)
 
 static esp_err_t pmu_config_adc_and_gauge(void)
 {
-    // Enable ADC main gate + channels: Temp(4), Sys(3), VBUS(2), VBAT(0)
-    ESP_RETURN_ON_ERROR(axp2101_set_bits(s_pmu_dev, AXP2101_REG_ADC_CH_CTRL, (1<<5)|(1<<4)|(1<<3)|(1<<2)|(1<<0)), TAG, "adc ch");
-    // Disable TS pin measurement (bit1)
-    ESP_RETURN_ON_ERROR(axp2101_clear_bits(s_pmu_dev, AXP2101_REG_ADC_CH_CTRL, (1<<1)), TAG, "ts off");
-    // Enable battery detection (bit0 of 0x68)
-    ESP_RETURN_ON_ERROR(axp2101_set_bits(s_pmu_dev, AXP2101_REG_BAT_DET_CTRL, (1<<0)), TAG, "bat det");
-    // Enable fuel gauge (bit3 of 0x18)
-    ESP_RETURN_ON_ERROR(axp2101_set_bits(s_pmu_dev, AXP2101_REG_CHG_GAUGE_WDT, (1<<3)), TAG, "gauge");
+    // Enable ADC main gate + Temp/Sys/VBUS/VBAT channels
+    ESP_RETURN_ON_ERROR(axp2101_set_bits(s_pmu_dev, AXP2101_REG_ADC_CH_CTRL,
+                                         AXP2101_ADC_GATE_EN | AXP2101_ADC_CH_TEMP |
+                                         AXP2101_ADC_CH_SYS  | AXP2101_ADC_CH_VBUS |
+                                         AXP2101_ADC_CH_VBAT), TAG, "adc ch");
+    // Disable TS pin measurement
+    ESP_RETURN_ON_ERROR(axp2101_clear_bits(s_pmu_dev, AXP2101_REG_ADC_CH_CTRL, AXP2101_ADC_CH_TS), TAG, "ts off");
+    // Enable battery detection
+    ESP_RETURN_ON_ERROR(axp2101_set_bits(s_pmu_dev, AXP2101_REG_BAT_DET_CTRL, AXP2101_BAT_DET_EN), TAG, "bat det");
+    // Enable fuel gauge
+    ESP_RETURN_ON_ERROR(axp2101_set_bits(s_pmu_dev, AXP2101_REG_CHG_GAUGE_WDT, AXP2101_GAUGE_EN), TAG, "gauge");
 
     // Enable PWR key short-press IRQ based on Kconfig selection
 #ifdef CONFIG_BSP_POWER_PKEY_IRQ_STATUS_REG_CH
@@ -85,14 +90,20 @@ static esp_err_t pmu_config_adc_and_gauge(void)
     // Clear any pending IRQ status for that bit
     uint8_t intsts_addr = (uint8_t)(AXP2101_REG_INTSTS1 + (irq_reg_ch - 1));
     uint8_t clr_buf[2] = { intsts_addr, (uint8_t)(1u << pkey_bit) };
-    (void)i2c_master_transmit(s_pmu_dev, clr_buf, sizeof(clr_buf), I2C_MASTER_TIMEOUT_MS);
+    esp_err_t clr_err = i2c_master_transmit(s_pmu_dev, clr_buf, sizeof(clr_buf), I2C_MASTER_TIMEOUT_MS);
+    if (clr_err != ESP_OK) {
+        ESP_LOGW(TAG, "IRQ status clear failed: %s", esp_err_to_name(clr_err));
+    }
     return ESP_OK;
 }
 
 static uint8_t pmu_read_u8(uint8_t reg)
 {
     uint8_t v = 0;
-    (void)i2c_master_transmit_receive(s_pmu_dev, &reg, 1, &v, 1, I2C_MASTER_TIMEOUT_MS);
+    esp_err_t err = i2c_master_transmit_receive(s_pmu_dev, &reg, 1, &v, 1, I2C_MASTER_TIMEOUT_MS);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "pmu_read_u8(0x%02X) failed: %s", reg, esp_err_to_name(err));
+    }
     return v;
 }
 
@@ -111,14 +122,26 @@ static esp_err_t pmu_set_aldo_state(uint8_t bit, bool enable)
 static void pmu_emit_evt(bsp_power_event_t evt)
 {
     if (!s_ready) return;
-    if (s_cb) s_cb(evt, s_cb_user);
+
+    bsp_power_event_cb_t cb = NULL;
+    void *cb_user = NULL;
+    if (s_mutex && xSemaphoreTake(s_mutex, pdMS_TO_TICKS(10)) == pdTRUE) {
+        cb = s_cb;
+        cb_user = s_cb_user;
+        xSemaphoreGive(s_mutex);
+    }
+    if (cb) cb(evt, cb_user);
+
     bsp_power_event_payload_t pl = {
         .battery_percent = bsp_power_get_battery_percent(),
         .charging = bsp_power_is_charging(),
         .vbus_in = bsp_power_is_vbus_in(),
         .charger_status = 0,
     };
-    (void)esp_event_post(BSP_POWER_EVENT_BASE, evt, &pl, sizeof(pl), 0);
+    esp_err_t post_err = esp_event_post(BSP_POWER_EVENT_BASE, evt, &pl, sizeof(pl), 0);
+    if (post_err != ESP_OK) {
+        ESP_LOGW(TAG, "esp_event_post failed: %s", esp_err_to_name(post_err));
+    }
 }
 
 static void pmu_mon_task(void *arg)
@@ -144,6 +167,13 @@ static void pmu_mon_task(void *arg)
 
 esp_err_t bsp_power_init(void)
 {
+    if (!s_mutex) {
+        s_mutex = xSemaphoreCreateMutex();
+        if (!s_mutex) {
+            ESP_LOGE(TAG, "mutex alloc failed");
+            return ESP_ERR_NO_MEM;
+        }
+    }
     ESP_RETURN_ON_ERROR(pmu_add_on_bus(), TAG, "dev");
     // Read IC type for info
     uint8_t ic = pmu_read_u8(AXP2101_REG_IC_TYPE);
@@ -156,6 +186,24 @@ esp_err_t bsp_power_init(void)
              bsp_power_get_vbus_voltage_mv(), bsp_power_get_system_voltage_mv());
     // Start monitor task by default
     bsp_power_start_monitor(250);
+    return ESP_OK;
+}
+
+esp_err_t bsp_power_deinit(void)
+{
+    if (s_mon_task) {
+        vTaskDelete(s_mon_task);
+        s_mon_task = NULL;
+    }
+    s_ready = false;
+    if (s_mutex && xSemaphoreTake(s_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+        s_cb = NULL;
+        s_cb_user = NULL;
+        xSemaphoreGive(s_mutex);
+        vSemaphoreDelete(s_mutex);
+        s_mutex = NULL;
+    }
+    s_pmu_dev = NULL;
     return ESP_OK;
 }
 
@@ -204,7 +252,7 @@ bool bsp_power_is_battery_connected(void)
     // Fallback: VBAT ADC non-zero considered connected
     uint8_t reg = AXP2101_REG_STATUS1, v = 0;
     if (i2c_master_transmit_receive(s_pmu_dev, &reg, 1, &v, 1, I2C_MASTER_TIMEOUT_MS) == ESP_OK) {
-        if (v & (1<<3)) return true;
+        if (v & AXP2101_STATUS1_BAT_CONN) return true;
     }
     return bsp_power_get_batt_voltage_mv() > 0;
 }
@@ -214,7 +262,7 @@ bool bsp_power_is_charging(void)
     if (!s_ready) return false;
     uint8_t reg = AXP2101_REG_STATUS2, v = 0;
     if (i2c_master_transmit_receive(s_pmu_dev, &reg, 1, &v, 1, I2C_MASTER_TIMEOUT_MS) != ESP_OK) return false;
-    return ((v >> 5) & 0x07) == 0x01;
+    return ((v >> AXP2101_STATUS2_CHG_SHIFT) & AXP2101_STATUS2_CHG_MASK) == AXP2101_STATUS2_CHG_CC;
 }
 
 bool bsp_power_is_vbus_in(void)
@@ -222,7 +270,7 @@ bool bsp_power_is_vbus_in(void)
     if (!s_ready) return false;
     uint8_t r1 = AXP2101_REG_STATUS1, v1 = 0;
     if (i2c_master_transmit_receive(s_pmu_dev, &r1, 1, &v1, 1, I2C_MASTER_TIMEOUT_MS) != ESP_OK) return false;
-    return (v1 & (1<<5)) != 0; // VBUS good
+    return (v1 & AXP2101_STATUS1_VBUS_GOOD) != 0;
 }
 
 // Minimal rail control stubs to preserve API
@@ -288,15 +336,24 @@ bool bsp_power_poll_pwr_button_short(void)
     bool pressed = (v & mask) != 0;
     if (pressed) {
         uint8_t clr_buf[2] = { reg, mask };
-        (void)i2c_master_transmit(s_pmu_dev, clr_buf, sizeof(clr_buf), I2C_MASTER_TIMEOUT_MS);
+        esp_err_t clr_err = i2c_master_transmit(s_pmu_dev, clr_buf, sizeof(clr_buf), I2C_MASTER_TIMEOUT_MS);
+        if (clr_err != ESP_OK) {
+            ESP_LOGW(TAG, "button latch clear failed: %s", esp_err_to_name(clr_err));
+        }
     }
     return pressed;
 }
 
 void bsp_power_register_event_cb(bsp_power_event_cb_t cb, void *user)
 {
-    s_cb = cb;
-    s_cb_user = user;
+    if (s_mutex && xSemaphoreTake(s_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+        s_cb = cb;
+        s_cb_user = user;
+        xSemaphoreGive(s_mutex);
+    } else {
+        s_cb = cb;
+        s_cb_user = user;
+    }
 }
 
 void bsp_power_start_monitor(uint32_t ms)
@@ -304,5 +361,9 @@ void bsp_power_start_monitor(uint32_t ms)
     if (!s_ready) return;
     if (ms) s_poll_ms = ms;
     if (s_mon_task) return;
-    xTaskCreate(pmu_mon_task, "pmu_mon", 3072, NULL, 3, &s_mon_task);
+    BaseType_t rc = xTaskCreate(pmu_mon_task, "pmu_mon", 3072, NULL, 3, &s_mon_task);
+    if (rc != pdPASS) {
+        ESP_LOGE(TAG, "pmu_mon task creation failed");
+        s_mon_task = NULL;
+    }
 }
