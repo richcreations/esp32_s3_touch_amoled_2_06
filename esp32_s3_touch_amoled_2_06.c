@@ -590,7 +590,7 @@ esp_err_t bsp_display_new(const bsp_display_config_t *config, esp_lcd_panel_hand
                                                                  BSP_LCD_DATA1,
                                                                  BSP_LCD_DATA2,
                                                                  BSP_LCD_DATA3,
-                                                                 (BSP_LCD_H_RES * BSP_LCD_V_RES * BSP_LCD_BITS_PER_PIXEL / 8));
+                                                                 (BSP_LCD_H_RES * 16 * BSP_LCD_BITS_PER_PIXEL / 8));
     ESP_ERROR_CHECK(spi_bus_initialize(BSP_LCD_SPI_NUM, &buscfg, SPI_DMA_CH_AUTO));
 
     // Use a mutable IO config so we can tune the SPI transaction queue depth
