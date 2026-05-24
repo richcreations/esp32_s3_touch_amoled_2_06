@@ -185,7 +185,7 @@ esp_err_t bsp_power_init(void)
              bsp_power_get_battery_percent(), bsp_power_get_batt_voltage_mv(),
              bsp_power_get_vbus_voltage_mv(), bsp_power_get_system_voltage_mv());
     // Start monitor task by default
-    bsp_power_start_monitor(250);
+    bsp_power_start_monitor(2000);
     return ESP_OK;
 }
 

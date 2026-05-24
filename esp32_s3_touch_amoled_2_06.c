@@ -269,10 +269,14 @@ esp_err_t bsp_audio_init(const i2s_std_config_t *i2s_config)
         ESP_GOTO_ON_ERROR(i2s_channel_init_std_mode(i2s_tx_chan, p_i2s_cfg), err, TAG, "I2S channel initialization failed");
         ESP_GOTO_ON_ERROR(i2s_channel_enable(i2s_tx_chan), err, TAG, "I2S enabling failed");
     }
+    // RX (microphone) intentionally left initialised but NOT enabled — this
+    // firmware never uses the microphone, and an enabled I2S channel holds
+    // an APB_FREQ_MAX PM lock that blocks light sleep. The codec API still
+    // accepts the rx handle in init mode; bsp_audio_codec_microphone_init()
+    // would need to call i2s_channel_enable(i2s_rx_chan) before recording.
     if (i2s_rx_chan != NULL)
     {
         ESP_GOTO_ON_ERROR(i2s_channel_init_std_mode(i2s_rx_chan, p_i2s_cfg), err, TAG, "I2S channel initialization failed");
-        ESP_GOTO_ON_ERROR(i2s_channel_enable(i2s_rx_chan), err, TAG, "I2S enabling failed");
     }
 
     audio_codec_i2s_cfg_t i2s_cfg = {
