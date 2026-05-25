@@ -172,11 +172,12 @@ typedef void (*bsp_power_event_cb_t)(bsp_power_event_t event, void *user_ctx);
 void bsp_power_register_event_cb(bsp_power_event_cb_t cb, void *user_ctx);
 
 /**
- * @brief Start background polling of PMU to detect VBUS and charge events.
- *        Use when no PMU IRQ pin is wired. Safe to call repeatedly.
- * @param poll_ms Polling period in milliseconds (e.g., 200-500ms)
+ * @brief One-shot AXP2101 state refresh: reads VBUS/charging and posts
+ *        BSP_POWER_EVT_* events on transitions. Replaces the previous
+ *        dedicated polling task — call this on whatever cadence is wanted
+ *        (typically from a coordinator/scheduler).
  */
-void bsp_power_start_monitor(uint32_t poll_ms);
+void bsp_power_refresh_state(void);
 
 /**
  * ESP-IDF event base for BSP power events.

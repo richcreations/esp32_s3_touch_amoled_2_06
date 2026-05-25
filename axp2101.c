@@ -14,8 +14,9 @@ static const char *TAG = "AXP2101";
 static i2c_master_dev_handle_t s_pmu_dev = NULL;
 static uint8_t s_pmu_addr = AXP2101_I2C_ADDR_PRIMARY;
 static volatile bool s_ready = false;
-static TaskHandle_t s_mon_task = NULL;
-static uint32_t s_poll_ms = 500;
+// Persistent state for bsp_power_refresh_state() — initialized in bsp_power_init().
+static bool s_prev_vbus = false;
+static bool s_prev_chg = false;
 static bsp_power_event_cb_t s_cb = NULL;
 static void *s_cb_user = NULL;
 static SemaphoreHandle_t s_mutex = NULL;
@@ -144,25 +145,24 @@ static void pmu_emit_evt(bsp_power_event_t evt)
     }
 }
 
-static void pmu_mon_task(void *arg)
+// One-shot AXP2101 state refresh: reads VBUS/charging and posts events on
+// transitions. Replaces the previous dedicated pmu_mon_task — callers (e.g.
+// task_coordinator subscriber) invoke this on whatever cadence they want.
+void bsp_power_refresh_state(void)
 {
-    bool prev_vbus = bsp_power_is_vbus_in();
-    bool prev_chg = bsp_power_is_charging();
-    for (;;) {
-        bool vbus = bsp_power_is_vbus_in();
-        if (vbus != prev_vbus) {
-            pmu_emit_evt(vbus ? BSP_POWER_EVT_VBUS_INSERT : BSP_POWER_EVT_VBUS_REMOVE);
-            prev_vbus = vbus;
-        }
-        bool chg = bsp_power_is_charging();
-        if (!prev_chg && chg) {
-            pmu_emit_evt(BSP_POWER_EVT_CHG_START);
-        } else if (prev_chg && !chg) {
-            pmu_emit_evt(BSP_POWER_EVT_CHG_DONE);
-        }
-        prev_chg = chg;
-        vTaskDelay(pdMS_TO_TICKS(s_poll_ms));
+    if (!s_ready) return;
+    bool vbus = bsp_power_is_vbus_in();
+    if (vbus != s_prev_vbus) {
+        pmu_emit_evt(vbus ? BSP_POWER_EVT_VBUS_INSERT : BSP_POWER_EVT_VBUS_REMOVE);
+        s_prev_vbus = vbus;
     }
+    bool chg = bsp_power_is_charging();
+    if (!s_prev_chg && chg) {
+        pmu_emit_evt(BSP_POWER_EVT_CHG_START);
+    } else if (s_prev_chg && !chg) {
+        pmu_emit_evt(BSP_POWER_EVT_CHG_DONE);
+    }
+    s_prev_chg = chg;
 }
 
 esp_err_t bsp_power_init(void)
@@ -180,21 +180,16 @@ esp_err_t bsp_power_init(void)
     ESP_LOGI(TAG, "AXP210x IC_TYPE(0x03)=0x%02X", (int)ic);
     ESP_RETURN_ON_ERROR(pmu_config_adc_and_gauge(), TAG, "cfg");
     s_ready = true;
-    // Log initial values
+    s_prev_vbus = bsp_power_is_vbus_in();
+    s_prev_chg  = bsp_power_is_charging();
     ESP_LOGI(TAG, "AXP2101 initialized: Batt %d%%, Vbat %dmV, Vbus %dmV, Vsys %dmV",
              bsp_power_get_battery_percent(), bsp_power_get_batt_voltage_mv(),
              bsp_power_get_vbus_voltage_mv(), bsp_power_get_system_voltage_mv());
-    // Start monitor task by default
-    bsp_power_start_monitor(2000);
     return ESP_OK;
 }
 
 esp_err_t bsp_power_deinit(void)
 {
-    if (s_mon_task) {
-        vTaskDelete(s_mon_task);
-        s_mon_task = NULL;
-    }
     s_ready = false;
     if (s_mutex && xSemaphoreTake(s_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
         s_cb = NULL;
@@ -356,14 +351,3 @@ void bsp_power_register_event_cb(bsp_power_event_cb_t cb, void *user)
     }
 }
 
-void bsp_power_start_monitor(uint32_t ms)
-{
-    if (!s_ready) return;
-    if (ms) s_poll_ms = ms;
-    if (s_mon_task) return;
-    BaseType_t rc = xTaskCreate(pmu_mon_task, "pmu_mon", 3072, NULL, 3, &s_mon_task);
-    if (rc != pdPASS) {
-        ESP_LOGE(TAG, "pmu_mon task creation failed");
-        s_mon_task = NULL;
-    }
-}
