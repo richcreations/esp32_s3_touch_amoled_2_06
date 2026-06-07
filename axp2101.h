@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "esp_err.h"
+#include "esp_log.h"
 #include "driver/i2c_master.h"
 
 #ifdef __cplusplus
@@ -94,16 +95,40 @@ static inline esp_err_t axp2101_clear_bits(i2c_master_dev_handle_t dev, uint8_t 
 static inline uint16_t axp2101_read_h5_l8(i2c_master_dev_handle_t dev, uint8_t reg_h, uint8_t reg_l)
 {
     uint8_t rh = reg_h, rl = reg_l, vh = 0, vl = 0;
-    if (i2c_master_transmit_receive(dev, &rh, 1, &vh, 1, AXP2101_I2C_TIMEOUT_MS) != ESP_OK) return 0;
-    if (i2c_master_transmit_receive(dev, &rl, 1, &vl, 1, AXP2101_I2C_TIMEOUT_MS) != ESP_OK) return 0;
+    // Log on failure rather than returning a bare 0 — a dead I2C bus would
+    // otherwise be indistinguishable from a real 0 reading (cf. AUDIT.md C1,
+    // fixed the same way in pmu_read_u8). "AXP2101" literal is used because the
+    // .c file's TAG is not in scope inside this header.
+    esp_err_t err = i2c_master_transmit_receive(dev, &rh, 1, &vh, 1, AXP2101_I2C_TIMEOUT_MS);
+    if (err != ESP_OK) {
+        ESP_LOGW("AXP2101", "axp2101_read_h5_l8(0x%02X) failed: %s", reg_h, esp_err_to_name(err));
+        return 0;
+    }
+    err = i2c_master_transmit_receive(dev, &rl, 1, &vl, 1, AXP2101_I2C_TIMEOUT_MS);
+    if (err != ESP_OK) {
+        ESP_LOGW("AXP2101", "axp2101_read_h5_l8(0x%02X) failed: %s", reg_l, esp_err_to_name(err));
+        return 0;
+    }
     return (uint16_t)(((vh & 0x1F) << 8) | vl);
 }
 
 static inline uint16_t axp2101_read_h6_l8(i2c_master_dev_handle_t dev, uint8_t reg_h, uint8_t reg_l)
 {
     uint8_t rh = reg_h, rl = reg_l, vh = 0, vl = 0;
-    if (i2c_master_transmit_receive(dev, &rh, 1, &vh, 1, AXP2101_I2C_TIMEOUT_MS) != ESP_OK) return 0;
-    if (i2c_master_transmit_receive(dev, &rl, 1, &vl, 1, AXP2101_I2C_TIMEOUT_MS) != ESP_OK) return 0;
+    // Log on failure rather than returning a bare 0 — for temperature in
+    // particular, AXP2101_TEMP_C_FROM_RAW(0) is ~386 C and looks like real
+    // sensor data (cf. AUDIT.md C1). "AXP2101" literal is used because the .c
+    // file's TAG is not in scope inside this header.
+    esp_err_t err = i2c_master_transmit_receive(dev, &rh, 1, &vh, 1, AXP2101_I2C_TIMEOUT_MS);
+    if (err != ESP_OK) {
+        ESP_LOGW("AXP2101", "axp2101_read_h6_l8(0x%02X) failed: %s", reg_h, esp_err_to_name(err));
+        return 0;
+    }
+    err = i2c_master_transmit_receive(dev, &rl, 1, &vl, 1, AXP2101_I2C_TIMEOUT_MS);
+    if (err != ESP_OK) {
+        ESP_LOGW("AXP2101", "axp2101_read_h6_l8(0x%02X) failed: %s", reg_l, esp_err_to_name(err));
+        return 0;
+    }
     return (uint16_t)(((vh & 0x3F) << 8) | vl);
 }
 

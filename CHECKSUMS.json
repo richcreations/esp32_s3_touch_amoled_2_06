@@ -30,8 +30,8 @@
     },
     {
       "path": "axp2101.h",
-      "size": 4223,
-      "hash": "47a589d71e25590ed1199d9dcaf3676f237940e3b2e048ff198d5c11991cc5d1"
+      "size": 5363,
+      "hash": "6be62d347d2c045153ec6a1879644e165a1a3758155cce76cf6f89e68d4e1900"
     },
     {
       "path": "esp32_s3_touch_amoled_2_06.c",
