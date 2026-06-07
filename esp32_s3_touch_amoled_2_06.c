@@ -239,7 +239,18 @@ esp_err_t bsp_sdcard_mount(void)
 
 esp_err_t bsp_sdcard_unmount(void)
 {
-    return esp_vfs_fat_sdcard_unmount(BSP_SD_MOUNT_POINT, bsp_sdcard);
+    // esp_vfs_fat_sdcard_unmount() frees the sdmmc_card_t this points to —
+    // reset to NULL on success so bsp_sdcard accurately reflects "not
+    // mounted" afterward. Callers (e.g. settings.c's sd_acquire/sd_release,
+    // which detect "already mounted by sd_logger" via bsp_sdcard == NULL)
+    // would otherwise see a dangling non-NULL pointer, wrongly conclude the
+    // card is still mounted, skip remounting it, and silently operate on an
+    // unmounted filesystem.
+    esp_err_t err = esp_vfs_fat_sdcard_unmount(BSP_SD_MOUNT_POINT, bsp_sdcard);
+    if (err == ESP_OK) {
+        bsp_sdcard = NULL;
+    }
+    return err;
 }
 
 esp_err_t bsp_audio_init(const i2s_std_config_t *i2s_config)
