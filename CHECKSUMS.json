@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "algorithm": "sha256",
-  "created_at": "2026-05-23T07:48:09.701061+00:00",
+  "created_at": "2026-06-08T23:44:16.747178+00:00",
   "files": [
     {
       "path": "CMakeLists.txt",
@@ -20,8 +20,8 @@
     },
     {
       "path": "README.md",
-      "size": 9276,
-      "hash": "026964f762e6b5b475b687401fcca94ac497013611fb12bfb97f74194ea4e25a"
+      "size": 10493,
+      "hash": "9938f33f60ef331b8a45c8150bb413a083cba664e88a20ce0fc1595b2981525d"
     },
     {
       "path": "axp2101.c",
@@ -32,6 +32,26 @@
       "path": "axp2101.h",
       "size": 5517,
       "hash": "98b1017e8eb220c81f39b506d92aa322b76669cacf28dbd0ad29a6870abc5dce"
+    },
+    {
+      "path": "doc/ESP32-S3-Touch-AMOLED-2.06-schematic.pdf",
+      "size": 1347665,
+      "hash": "6d531fb458863c666210c92294a07204d675bcb7997a54fc219d92fadbbacf9d"
+    },
+    {
+      "path": "doc/X-power-AXP2101_SWcharge_V1.0.pdf",
+      "size": 1434506,
+      "hash": "e3754322312be3b3bbddba880efa036bd6575d59aac8a58e603608bcbc19a795"
+    },
+    {
+      "path": "doc/api.md",
+      "size": 21661,
+      "hash": "f49b62aaf4ee09fd352eec1cbc9047147aa29c8d738792406b99fe15b6d4011f"
+    },
+    {
+      "path": "doc/power-rails.md",
+      "size": 6049,
+      "hash": "d65b6060f3be259eb2f5fc6e868b7cb725b656b05f81cac9c43d11033d0a10fb"
     },
     {
       "path": "esp32_s3_touch_amoled_2_06.c",
@@ -72,21 +92,6 @@
       "path": "priv_include/bsp_err_check.h",
       "size": 1501,
       "hash": "9270b22036dfca465fc493152099afec5ea455e45fea02c71b8d653723fecaa9"
-    },
-    {
-      "path": "doc/api.md",
-      "size": 20505,
-      "hash": "41c3fd89de3be64fea9d86265b57c8ed621d8acdf9ac5f4aa6b9306807d1177d"
-    },
-    {
-      "path": "doc/ESP32-S3-Touch-AMOLED-2.06-schematic.pdf",
-      "size": 1347665,
-      "hash": "6d531fb458863c666210c92294a07204d675bcb7997a54fc219d92fadbbacf9d"
-    },
-    {
-      "path": "doc/X-power-AXP2101_SWcharge_V1.0.pdf",
-      "size": 1434506,
-      "hash": "e3754322312be3b3bbddba880efa036bd6575d59aac8a58e603608bcbc19a795"
     }
   ]
 }

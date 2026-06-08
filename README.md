@@ -34,6 +34,26 @@ Relative to a stock Waveshare/joaquimorg BSP:
 - **Light-sleep friendly audio** — the I²S RX (mic) channel is initialised but left disabled by default so it doesn't hold an APB power-management lock that would block light sleep.
 - **Robustness** — I²C helpers log on failure instead of silently returning `0`; SD-card mount/unmount handle reset correctly. A code audit ([AUDIT.md](AUDIT.md)) and a per-file integrity manifest ([CHECKSUMS.json](CHECKSUMS.json)) are tracked in-tree.
 
+## AXP2101 power rail mapping
+
+This board uses an AXP2101 PMU. The BSP exposes per-rail enable control for the display/peripheral rails while protecting the core system rails.
+
+| PMU output | Board net | Role |
+|------------|-----------|------|
+| `DCDC1` | `VCC3V3` | Main 3.3V system rail: ESP32-S3 VDD pins, flash, touch, RTC, display logic, and most board logic |
+| `ALDO3` | `A3V3` | Analog 3.3V rail for audio codecs and microphone bias |
+| `RTCLDO` | `VCC-RTC` | RTC backup supply |
+| `ALDO1` | `VL1_3.3V` | Reserved / display-related; no confirmed consumers in the available schematic |
+| `ALDO2` | `VL2_3.3V` | Reserved / display-related; no confirmed consumers in the available schematic |
+| `ALDO4` | `VL3_1.8V` | Display/touch related supply |
+| `BLDO2` | `VL_2.8V` | Display-related supply |
+| `DCDC2` | `CORE_0V9` | Internal low-voltage core domain |
+| `DCDC3` | `VL_1.2V` | Display-related 1.2V rail |
+| `DCDC4` | `1V8_MAIN` | Display-related 1.8V rail |
+| `CPUSLDO` | `VCL_1.2V` | ESP32-S3 internal CPU core rail |
+
+> The display subsystem is partly fed from rails that terminate in the AMOLED connector. The exact downstream consumers on `ALDO1`/`ALDO2` are not visible in the board-level schematic.
+
 ---
 
 ## Requirements

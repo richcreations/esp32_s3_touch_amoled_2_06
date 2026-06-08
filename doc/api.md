@@ -188,6 +188,26 @@ bool      bsp_power_rail_is_protected(bsp_power_rail_t rail);
 
 > **Safety:** disabling a *protected* rail is refused (`ESP_ERR_NOT_ALLOWED`) so you cannot brick the board. Disabling a non-protected rail that still powers something in use (e.g. a display ALDO while the panel is on) is allowed and is the caller's responsibility.
 
+### Board rail mapping
+
+The AXP2101 rails on this board are mapped as follows:
+
+| Rail | Net | Role | Protected? |
+|------|-----|------|:---------:|
+| `DCDC1` | `VCC3V3` | Main 3.3V system rail (ESP32-S3, flash, touch, RTC, display logic, most board logic) | **yes** |
+| `DCDC2` | `CORE_0V9` | Internal PMU/core low-voltage domain | **yes** |
+| `DCDC3` | `VL_1.2V` | Display-related 1.2V rail | **yes** |
+| `DCDC4` | `1V8_MAIN` | Display-related 1.8V rail | **yes** |
+| `CPUSLDO` | `VCL_1.2V` | ESP32-S3 internal CPU core rail | **yes** |
+| `ALDO1` | `VL1_3.3V` | Reserved/display-related; no confirmed consumers on available schematic | no |
+| `ALDO2` | `VL2_3.3V` | Reserved/display-related; no confirmed consumers on available schematic | no |
+| `ALDO3` | `A3V3` | Analog 3.3V rail for audio codecs and microphone bias | no |
+| `ALDO4` | `VL3_1.8V` | Display/touch-related 1.8V supply | no |
+| `BLDO1` | (unused) | unused | no |
+| `BLDO2` | `VL_2.8V` | Display-related 2.8V supply | no |
+
+> `ALDO1` and `ALDO2` are present on the schematic but not visibly consumed by a traced component; they are likely reserved for display/touch or future revisions.
+
 #### Legacy / convenience rail wrappers
 
 Thin wrappers over `bsp_power_rail_enable`, kept for back-compat:
