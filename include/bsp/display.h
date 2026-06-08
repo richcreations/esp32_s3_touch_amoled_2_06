@@ -133,6 +133,23 @@ esp_err_t bsp_display_sleep(void);
  */
 esp_err_t bsp_display_wake(void);
 
+/**
+ * @brief Prevent bsp_display_sleep() from cutting the ALDO power rails
+ *
+ * When @p keep is true, the next call(s) to bsp_display_sleep() will skip the
+ * ALDO rail gate-off step, leaving those rails powered even while the display
+ * panel is in its software sleep state.  Use this when a peripheral on an ALDO
+ * rail (e.g. I2C pull-ups, touch IC, audio path) must stay powered during
+ * display sleep — typically while audio is actively playing.
+ *
+ * Callers must pair every keep=true with a keep=false when the need lapses.
+ * The flag is not reference-counted; the last writer wins.
+ *
+ * @param keep true  -> suppress ALDO gate during next sleep(s)
+ *             false -> allow normal ALDO gating (default)
+ */
+void bsp_display_keep_aldo_alive(bool keep);
+
 #ifdef __cplusplus
 }
 #endif

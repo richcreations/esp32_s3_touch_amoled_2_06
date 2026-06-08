@@ -33,6 +33,9 @@ ESP_EVENT_DEFINE_BASE(BSP_POWER_EVENT_BASE);
 #define PANEL_CLEAR_CHUNK_LINES 8
 
 static bool s_panel_power_gated = false;
+static bool s_keep_aldo_alive   = false;
+
+void bsp_display_keep_aldo_alive(bool keep) { s_keep_aldo_alive = keep; }
 
 static bool bsp_display_set_aldo_state(bool enable)
 {
@@ -515,9 +518,16 @@ esp_err_t bsp_display_sleep(void)
     lcd_cmd |= 0x02 << 24;
     esp_lcd_panel_io_tx_param(io_handle, lcd_cmd, NULL, 0);
 
-    // If PMU present, gate panel rails to fully power off
+    // If PMU present, gate panel rails to fully power off.
+    // Skip gating when a caller (e.g. music_player) has signalled that
+    // something on the ALDO rails must stay powered through display sleep.
+    // bsp_display_wake() handles both the gated and non-gated cases:
+    //   - gated (s_panel_power_gated = true)  -> full panel reinit on wake
+    //   - non-gated (s_panel_power_gated = false) -> Sleep Out (0x11) only
     vTaskDelay(pdMS_TO_TICKS(5));
-    s_panel_power_gated = bsp_display_set_aldo_state(false);
+    if (!s_keep_aldo_alive) {
+        s_panel_power_gated = bsp_display_set_aldo_state(false);
+    }
 
     ESP_LOGI(TAG, "Panel sleep");
     return ESP_OK;

@@ -35,8 +35,8 @@
     },
     {
       "path": "esp32_s3_touch_amoled_2_06.c",
-      "size": 26060,
-      "hash": "b212cbcdcbefffef5fb5bc3a1c49335ecf12e3a1d82dae5bf90eb6d5c01dfe77"
+      "size": 26587,
+      "hash": "7c90ebf0019beaeb3d4b4eb432a0e9f317d166d1b97eda6097b0707fd91b84e0"
     },
     {
       "path": "idf_component.yml",
@@ -50,8 +50,8 @@
     },
     {
       "path": "include/bsp/display.h",
-      "size": 4106,
-      "hash": "1d0eafa42c0436908f35a9646dabba1ce86d47fc34be495ce9b5e603acd1014d"
+      "size": 4878,
+      "hash": "f2f72dc542a10255f7947ac78888e5bd9d99a4c66ba140e653687625847a47d3"
     },
     {
       "path": "include/bsp/esp-bsp.h",
