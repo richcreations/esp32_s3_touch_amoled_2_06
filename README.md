@@ -187,11 +187,13 @@ All public APIs are in [`include/bsp/esp32_s3_touch_amoled_2_06.h`](include/bsp/
 - **Display (LVGL):** `bsp_display_start`, `bsp_display_start_with_config`, `bsp_display_lock` / `bsp_display_unlock`, `bsp_display_rotate`, `bsp_display_get_input_dev`
 - **Display (panel):** `bsp_display_new`, `bsp_display_brightness_set` / `_get`, `bsp_display_backlight_on` / `_off`, `bsp_display_sleep` / `_wake`, `bsp_display_clear_black`
 - **Touch:** `bsp_touch_new`
-- **Power (AXP2101):** `bsp_power_init` / `_deinit`, readouts (`bsp_power_get_*`, `bsp_power_is_*`), rails (`bsp_power_set_*` / `bsp_power_enable_*`), `bsp_power_poll_pwr_button_short`, `bsp_power_register_event_cb`, `bsp_power_refresh_state`
+- **Power (AXP2101):** `bsp_power_init` / `_deinit`, readouts (`bsp_power_get_*`, `bsp_power_is_*`), per-rail control (`bsp_power_rail_enable` / `_is_enabled` / `_is_protected`, plus the `bsp_power_enable_aldo*` / `_dc1` wrappers), `bsp_power_poll_pwr_button_short`, `bsp_power_register_event_cb`, `bsp_power_refresh_state`
 - **Audio:** `bsp_audio_init` / `_deinit`, `bsp_audio_codec_speaker_init`, `bsp_audio_codec_microphone_init`
 - **Storage:** `bsp_sdcard_mount` / `_unmount` (+ `bsp_sdcard`), `bsp_spiffs_mount` / `_unmount`
 
 > **LVGL is not thread-safe** — wrap all `lv_*` calls between `bsp_display_lock()` and `bsp_display_unlock()`.
+
+> **Rail power gating** — `bsp_power_rail_enable()` switches individual AXP2101 rails on/off to save power (voltages are never changed). The SoC/core rails (DCDC1=VCC3V3, DCDC2–4, CPUSLDO) are *protected*: disabling one returns `ESP_ERR_NOT_ALLOWED` so you can't accidentally kill the board. The display runs off the ALDO rails, which are freely switchable.
 
 ---
 

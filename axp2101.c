@@ -108,18 +108,6 @@ static uint8_t pmu_read_u8(uint8_t reg)
     return v;
 }
 
-static esp_err_t pmu_set_aldo_state(uint8_t bit, bool enable)
-{
-    if (!s_ready || !s_pmu_dev) {
-        return ESP_ERR_INVALID_STATE;
-    }
-    uint8_t mask = (uint8_t)(1u << bit);
-    if (enable) {
-        return axp2101_set_bits(s_pmu_dev, AXP2101_REG_LDO_ONOFF_CTRL0, mask);
-    }
-    return axp2101_clear_bits(s_pmu_dev, AXP2101_REG_LDO_ONOFF_CTRL0, mask);
-}
-
 static void pmu_emit_evt(bsp_power_event_t evt)
 {
     if (!s_ready) return;
@@ -268,46 +256,76 @@ bool bsp_power_is_vbus_in(void)
     return (v1 & AXP2101_STATUS1_VBUS_GOOD) != 0;
 }
 
-// Minimal rail control stubs to preserve API
-esp_err_t bsp_power_set_dc1_voltage_mv(uint16_t mv)
+// ---- Generic per-rail enable/disable -----------------------------------
+// Maps each bsp_power_rail_t to its on/off register and bit. Output voltage is
+// never touched here. Register/bit assignments verified against AXP2101
+// datasheet section 6.13.2 (REG 0x80 / 0x90 / 0x91).
+static const struct { uint8_t reg; uint8_t bit; } s_rail_map[BSP_POWER_RAIL_COUNT] = {
+    [BSP_POWER_RAIL_DCDC1]   = { AXP2101_REG_DCDC_ONOFF_CTRL, 0 },
+    [BSP_POWER_RAIL_DCDC2]   = { AXP2101_REG_DCDC_ONOFF_CTRL, 1 },
+    [BSP_POWER_RAIL_DCDC3]   = { AXP2101_REG_DCDC_ONOFF_CTRL, 2 },
+    [BSP_POWER_RAIL_DCDC4]   = { AXP2101_REG_DCDC_ONOFF_CTRL, 3 },
+    [BSP_POWER_RAIL_ALDO1]   = { AXP2101_REG_LDO_ONOFF_CTRL0, 0 },
+    [BSP_POWER_RAIL_ALDO2]   = { AXP2101_REG_LDO_ONOFF_CTRL0, 1 },
+    [BSP_POWER_RAIL_ALDO3]   = { AXP2101_REG_LDO_ONOFF_CTRL0, 2 },
+    [BSP_POWER_RAIL_ALDO4]   = { AXP2101_REG_LDO_ONOFF_CTRL0, 3 },
+    [BSP_POWER_RAIL_BLDO1]   = { AXP2101_REG_LDO_ONOFF_CTRL0, 4 },
+    [BSP_POWER_RAIL_BLDO2]   = { AXP2101_REG_LDO_ONOFF_CTRL0, 5 },
+    [BSP_POWER_RAIL_CPUSLDO] = { AXP2101_REG_LDO_ONOFF_CTRL0, 6 },
+    [BSP_POWER_RAIL_DLDO1]   = { AXP2101_REG_LDO_ONOFF_CTRL0, 7 },
+    [BSP_POWER_RAIL_DLDO2]   = { AXP2101_REG_LDO_ONOFF_CTRL1, 0 },
+};
+
+// Rails that power the SoC/core and must never be switched off. Confirmed from
+// the board schematic: DCDC1=VCC3V3 (system), DCDC2/3/4 core-class, CPUSLDO core.
+#define BSP_POWER_PROTECTED_RAILS                                    \
+    ((1u << BSP_POWER_RAIL_DCDC1) | (1u << BSP_POWER_RAIL_DCDC2) |   \
+     (1u << BSP_POWER_RAIL_DCDC3) | (1u << BSP_POWER_RAIL_DCDC4) |   \
+     (1u << BSP_POWER_RAIL_CPUSLDO))
+
+bool bsp_power_rail_is_protected(bsp_power_rail_t rail)
 {
-    return s_ready ? ESP_OK : ESP_ERR_INVALID_STATE;
+    if ((unsigned)rail >= BSP_POWER_RAIL_COUNT) return false;
+    return (BSP_POWER_PROTECTED_RAILS & (1u << rail)) != 0;
 }
 
-esp_err_t bsp_power_enable_dc1(bool enable)
+esp_err_t bsp_power_rail_enable(bsp_power_rail_t rail, bool on)
 {
-    return s_ready ? ESP_OK : ESP_ERR_INVALID_STATE;
+    if (!s_ready || !s_pmu_dev) return ESP_ERR_INVALID_STATE;
+    if ((unsigned)rail >= BSP_POWER_RAIL_COUNT) return ESP_ERR_INVALID_ARG;
+    if (!on && bsp_power_rail_is_protected(rail)) {
+        ESP_LOGW(TAG, "refusing to disable protected rail %d", (int)rail);
+        return ESP_ERR_NOT_ALLOWED;
+    }
+    uint8_t mask = (uint8_t)(1u << s_rail_map[rail].bit);
+    return on ? axp2101_set_bits(s_pmu_dev, s_rail_map[rail].reg, mask)
+              : axp2101_clear_bits(s_pmu_dev, s_rail_map[rail].reg, mask);
 }
 
-esp_err_t bsp_power_set_aldo1_voltage_mv(uint16_t mv)
+int bsp_power_rail_is_enabled(bsp_power_rail_t rail)
 {
-    return s_ready ? ESP_OK : ESP_ERR_INVALID_STATE;
+    if (!s_ready || !s_pmu_dev || (unsigned)rail >= BSP_POWER_RAIL_COUNT) return -1;
+    uint8_t reg = s_rail_map[rail].reg, v = 0;
+    if (i2c_master_transmit_receive(s_pmu_dev, &reg, 1, &v, 1, I2C_MASTER_TIMEOUT_MS) != ESP_OK) {
+        ESP_LOGW(TAG, "rail %d state read failed", (int)rail);
+        return -1;
+    }
+    return (v & (1u << s_rail_map[rail].bit)) ? 1 : 0;
 }
 
-esp_err_t bsp_power_enable_aldo1(bool enable)
-{
-    return pmu_set_aldo_state(0, enable);
-}
+// Voltage control is intentionally not supported on this board: rail voltages
+// are fixed by the schematic and changing them risks the SoC. Report honestly
+// rather than silently pretending success (these were previously no-op stubs).
+esp_err_t bsp_power_set_dc1_voltage_mv(uint16_t mv)   { (void)mv; return ESP_ERR_NOT_SUPPORTED; }
+esp_err_t bsp_power_set_aldo1_voltage_mv(uint16_t mv) { (void)mv; return ESP_ERR_NOT_SUPPORTED; }
+esp_err_t bsp_power_set_aldo2_voltage_mv(uint16_t mv) { (void)mv; return ESP_ERR_NOT_SUPPORTED; }
 
-esp_err_t bsp_power_set_aldo2_voltage_mv(uint16_t mv)
-{
-    return s_ready ? ESP_OK : ESP_ERR_INVALID_STATE;
-}
-
-esp_err_t bsp_power_enable_aldo2(bool enable)
-{
-    return pmu_set_aldo_state(1, enable);
-}
-
-esp_err_t bsp_power_enable_aldo3(bool enable)
-{
-    return pmu_set_aldo_state(2, enable);
-}
-
-esp_err_t bsp_power_enable_aldo4(bool enable)
-{
-    return pmu_set_aldo_state(3, enable);
-}
+// Back-compat wrappers — single code path through the generic rail API.
+esp_err_t bsp_power_enable_dc1(bool enable)   { return bsp_power_rail_enable(BSP_POWER_RAIL_DCDC1, enable); }
+esp_err_t bsp_power_enable_aldo1(bool enable) { return bsp_power_rail_enable(BSP_POWER_RAIL_ALDO1, enable); }
+esp_err_t bsp_power_enable_aldo2(bool enable) { return bsp_power_rail_enable(BSP_POWER_RAIL_ALDO2, enable); }
+esp_err_t bsp_power_enable_aldo3(bool enable) { return bsp_power_rail_enable(BSP_POWER_RAIL_ALDO3, enable); }
+esp_err_t bsp_power_enable_aldo4(bool enable) { return bsp_power_rail_enable(BSP_POWER_RAIL_ALDO4, enable); }
 
 bool bsp_power_poll_pwr_button_short(void)
 {

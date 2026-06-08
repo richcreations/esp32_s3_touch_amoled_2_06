@@ -149,6 +149,73 @@ esp_err_t bsp_power_enable_aldo3(bool enable);
 esp_err_t bsp_power_enable_aldo4(bool enable);
 
 /**
+ * AXP2101 power rails, individually switchable via bsp_power_rail_enable().
+ *
+ * Board mapping (from the ESP32-S3-Touch-AMOLED-2.06 schematic):
+ *   DCDC1   = VCC3V3   main 3.3V system rail (ESP32-S3 + everything)  [PROTECTED]
+ *   DCDC2   = 0.9V     core-class                                      [PROTECTED]
+ *   DCDC3   = 1.2V     core-class                                      [PROTECTED]
+ *   DCDC4   = 1.8V     core-class                                      [PROTECTED]
+ *   CPUSLDO = VCL_1.2V CPU SLDO, core-class                            [PROTECTED]
+ *   ALDO1   = VL1_3.3V display / peripheral
+ *   ALDO2   = VL2_3.3V display / peripheral
+ *   ALDO3   = VCC3V    display / peripheral
+ *   ALDO4   = VL3_1.8V display / peripheral
+ *   BLDO1   = (unused)
+ *   BLDO2   = VL_2.8V  peripheral
+ *   DLDO1   = DC1SW    peripheral / unused
+ *   DLDO2   = DC4SW    peripheral / unused
+ *
+ * PROTECTED rails power the SoC/core and cannot be switched off (see
+ * bsp_power_rail_enable). The ALDO rails are what the display uses.
+ */
+typedef enum {
+    BSP_POWER_RAIL_DCDC1, BSP_POWER_RAIL_DCDC2, BSP_POWER_RAIL_DCDC3, BSP_POWER_RAIL_DCDC4,
+    BSP_POWER_RAIL_ALDO1, BSP_POWER_RAIL_ALDO2, BSP_POWER_RAIL_ALDO3, BSP_POWER_RAIL_ALDO4,
+    BSP_POWER_RAIL_BLDO1, BSP_POWER_RAIL_BLDO2,
+    BSP_POWER_RAIL_DLDO1, BSP_POWER_RAIL_DLDO2,
+    BSP_POWER_RAIL_CPUSLDO,
+    BSP_POWER_RAIL_COUNT
+} bsp_power_rail_t;
+
+/**
+ * @brief Enable or disable a single PMU rail
+ *
+ * Lets the application power-gate individual peripheral rails to save energy.
+ * Only the rail's on/off bit is touched; output voltage is never changed.
+ *
+ * @note Disabling a rail that still powers something in use (e.g. a display
+ *       ALDO while the panel is active) will break that peripheral — that is
+ *       the caller's responsibility. PROTECTED (SoC/core) rails are guarded.
+ *
+ * @param rail Rail to control
+ * @param on   true = enable, false = disable
+ * @return
+ *      - ESP_OK                On success
+ *      - ESP_ERR_INVALID_STATE PMU not initialized
+ *      - ESP_ERR_INVALID_ARG   Unknown rail
+ *      - ESP_ERR_NOT_ALLOWED   Attempt to disable a PROTECTED rail
+ *      - other                 I2C error code
+ */
+esp_err_t bsp_power_rail_enable(bsp_power_rail_t rail, bool on);
+
+/**
+ * @brief Query whether a rail is currently enabled
+ *
+ * @param rail Rail to query
+ * @return 1 if enabled, 0 if disabled, -1 on error (bad rail / PMU not ready / I2C failure)
+ */
+int bsp_power_rail_is_enabled(bsp_power_rail_t rail);
+
+/**
+ * @brief Report whether a rail is protected from being switched off
+ *
+ * @param rail Rail to query
+ * @return true if the rail is in the protected (SoC/core) set
+ */
+bool bsp_power_rail_is_protected(bsp_power_rail_t rail);
+
+/**
  * @brief Poll for a short press of the PMU power button (AXP2101 PWR key)
  *
  * Checks and clears the PMU IRQ status internally.

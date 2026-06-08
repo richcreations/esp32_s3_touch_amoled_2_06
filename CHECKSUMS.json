@@ -20,18 +20,18 @@
     },
     {
       "path": "README.md",
-      "size": 8731,
-      "hash": "603b7d6032a896d694c215e792d5db40f71a71d97f24d651873aeded2d6e87de"
+      "size": 9175,
+      "hash": "db10ff500452a895f856971c305489506aef2aab0437c3d5ec668383022cf047"
     },
     {
       "path": "axp2101.c",
-      "size": 11437,
-      "hash": "547d4673709e166ea28ea81bf8a0d2996c7e3aeba8ecf67859562af707b3bc17"
+      "size": 14231,
+      "hash": "732f9fcf7ffc652b4c8011fdde5d11585d7ebeeb2c1dd4880c341a0fdd522bc6"
     },
     {
       "path": "axp2101.h",
-      "size": 5363,
-      "hash": "6be62d347d2c045153ec6a1879644e165a1a3758155cce76cf6f89e68d4e1900"
+      "size": 5517,
+      "hash": "98b1017e8eb220c81f39b506d92aa322b76669cacf28dbd0ad29a6870abc5dce"
     },
     {
       "path": "esp32_s3_touch_amoled_2_06.c",
@@ -60,8 +60,8 @@
     },
     {
       "path": "include/bsp/esp32_s3_touch_amoled_2_06.h",
-      "size": 13482,
-      "hash": "c52b8834ec94687d441b2810d6b62c863a7089eddee2654470cd0b1db1624608"
+      "size": 16224,
+      "hash": "74675e6c328e20001cf121af2d3d9fdb12f751e418edc62d0e3f9cb5949b42dc"
     },
     {
       "path": "include/bsp/touch.h",
