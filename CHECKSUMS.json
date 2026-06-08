@@ -20,8 +20,8 @@
     },
     {
       "path": "README.md",
-      "size": 9175,
-      "hash": "db10ff500452a895f856971c305489506aef2aab0437c3d5ec668383022cf047"
+      "size": 9276,
+      "hash": "026964f762e6b5b475b687401fcca94ac497013611fb12bfb97f74194ea4e25a"
     },
     {
       "path": "axp2101.c",
@@ -72,6 +72,21 @@
       "path": "priv_include/bsp_err_check.h",
       "size": 1501,
       "hash": "9270b22036dfca465fc493152099afec5ea455e45fea02c71b8d653723fecaa9"
+    },
+    {
+      "path": "doc/api.md",
+      "size": 20505,
+      "hash": "41c3fd89de3be64fea9d86265b57c8ed621d8acdf9ac5f4aa6b9306807d1177d"
+    },
+    {
+      "path": "doc/ESP32-S3-Touch-AMOLED-2.06-schematic.pdf",
+      "size": 1347665,
+      "hash": "6d531fb458863c666210c92294a07204d675bcb7997a54fc219d92fadbbacf9d"
+    },
+    {
+      "path": "doc/X-power-AXP2101_SWcharge_V1.0.pdf",
+      "size": 1434506,
+      "hash": "e3754322312be3b3bbddba880efa036bd6575d59aac8a58e603608bcbc19a795"
     }
   ]
 }

@@ -181,6 +181,8 @@ bsp_display_wake();    // sleep-out + display on
 
 ## API overview
 
+📖 **Full per-function reference: [doc/api.md](doc/api.md).** The summary below is a quick index.
+
 All public APIs are in [`include/bsp/esp32_s3_touch_amoled_2_06.h`](include/bsp/esp32_s3_touch_amoled_2_06.h), [`include/bsp/display.h`](include/bsp/display.h), and [`include/bsp/touch.h`](include/bsp/touch.h).
 
 - **I²C:** `bsp_i2c_init`, `bsp_i2c_deinit`, `bsp_i2c_get_handle`
