@@ -816,7 +816,9 @@ lv_display_t *bsp_display_start(void)
 {
     const lvgl_port_cfg_t cfg_port = {
         .task_priority     = 3,             // increase priority
-        .task_stack        = 15 * 1024,     // increase stack
+        // Right-sized from measured stack high-water (~6 KB peak; Run Tests
+        // "Stack/heap report") + margin, to reclaim ~5 KB of scarce internal RAM.
+        .task_stack        = 10 * 1024,
         .task_affinity     = -1,            // pin to core -1 (any core)
         .timer_period_ms   = 20,            // LVGL tick period (lower = smoother, more CPU)        
     };
