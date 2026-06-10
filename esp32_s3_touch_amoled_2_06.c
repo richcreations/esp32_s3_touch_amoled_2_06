@@ -626,12 +626,16 @@ esp_err_t bsp_display_new(const bsp_display_config_t *config, esp_lcd_panel_hand
     esp_err_t ret = ESP_OK;
 
     ESP_LOGI(TAG, "Initialize SPI bus");
+    // max_transfer_sz must cover one LVGL flush strip = H_RES * LVGL_BUFFER_HEIGHT
+    // * bytes-per-pixel. Track the configured buffer height (was hard-coded to a
+    // 16-line strip) so BSP_DISPLAY_LVGL_BUF_HEIGHT can be raised for fewer SPI
+    // transactions / smoother UI without overflowing the bus.
     const spi_bus_config_t buscfg = SH8601_PANEL_BUS_QSPI_CONFIG(BSP_LCD_PCLK,
                                                                  BSP_LCD_DATA0,
                                                                  BSP_LCD_DATA1,
                                                                  BSP_LCD_DATA2,
                                                                  BSP_LCD_DATA3,
-                                                                 (BSP_LCD_H_RES * 16 * BSP_LCD_BITS_PER_PIXEL / 8));
+                                                                 (BSP_LCD_H_RES * LVGL_BUFFER_HEIGHT * BSP_LCD_BITS_PER_PIXEL / 8));
     ESP_RETURN_ON_ERROR(spi_bus_initialize(BSP_LCD_SPI_NUM, &buscfg, SPI_DMA_CH_AUTO), TAG, "SPI bus init failed");
 
     // Use a mutable IO config so we can tune the SPI transaction queue depth
