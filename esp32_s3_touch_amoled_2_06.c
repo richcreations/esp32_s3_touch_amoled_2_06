@@ -587,6 +587,28 @@ esp_err_t bsp_display_wake(void)
     ESP_LOGI(TAG, "Panel wake");
     return ESP_OK;
 }
+
+esp_err_t bsp_display_wake_from_gated(void)
+{
+    if (panel_handle == NULL || io_handle == NULL) {
+        ESP_LOGE(TAG, "Panel handle is not initialized");
+        return ESP_ERR_INVALID_STATE;
+    }
+
+    // Rails were already restored by power_manager (DISPLAY lock); just let them
+    // settle, then fully reinit the power-cycled panel. No ALDO toggling here.
+    vTaskDelay(pdMS_TO_TICKS(20));
+    ESP_RETURN_ON_ERROR(esp_lcd_panel_reset(panel_handle), TAG, "panel reset");
+    ESP_RETURN_ON_ERROR(esp_lcd_panel_init(panel_handle), TAG, "panel init");
+    ESP_RETURN_ON_ERROR(esp_lcd_panel_set_gap(panel_handle, 0x16, 0), TAG, "panel gap");
+    ESP_RETURN_ON_ERROR(esp_lcd_panel_disp_on_off(panel_handle, true), TAG, "panel on");
+    esp_err_t clr_err = bsp_display_clear_black();
+    if (clr_err != ESP_OK) {
+        ESP_LOGW(TAG, "Panel clear after reinit failed: %s", esp_err_to_name(clr_err));
+    }
+    ESP_LOGI(TAG, "Panel wake (reinit from gated)");
+    return ESP_OK;
+}
 #if LVGL_VERSION_MAJOR >= 9
 static void rounder_event_cb(lv_event_t *e)
 {

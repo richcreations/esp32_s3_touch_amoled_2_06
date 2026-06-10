@@ -134,6 +134,20 @@ esp_err_t bsp_display_sleep(void);
 esp_err_t bsp_display_wake(void);
 
 /**
+ * @brief Reinitialise the panel after its ALDO rails were cut and restored
+ *
+ * power_manager now owns the ALDO rails (DISPLAY lock = ALDO1/2/4) and cuts them
+ * during display-off, so on wake the panel IC is power-cycled — DCS Sleep-Out is
+ * not enough. Call this once the rails are back on: full reset + init + display-on
+ * + black clear. Does NOT touch any ALDO rail (the caller owns rail power).
+ *
+ * @return
+ *      - ESP_OK                On success
+ *      - ESP_ERR_INVALID_STATE If panel is not initialized
+ */
+esp_err_t bsp_display_wake_from_gated(void);
+
+/**
  * @brief Prevent bsp_display_sleep() from cutting the ALDO power rails
  *
  * When @p keep is true, the next call(s) to bsp_display_sleep() will skip the
