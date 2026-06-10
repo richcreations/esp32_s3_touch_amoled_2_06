@@ -31,6 +31,7 @@ Relative to a stock Waveshare/joaquimorg BSP:
 - **AXP2101 power management** — a complete `bsp_power_*` API (no XPowersLib C++ dependency): battery %, battery/VBUS/system voltage, die temperature, charge/VBUS state, rail control (DC1, ALDO1–4), and PWR-key short-press detection.
 - **Power events** — register a callback (`bsp_power_register_event_cb`) and/or consume an ESP-IDF event base (`BSP_POWER_EVENT_BASE`) for VBUS insert/remove and charge start/done. State is refreshed on demand via `bsp_power_refresh_state()` (no dedicated polling task).
 - **Display sleep/wake** — `bsp_display_sleep()` / `bsp_display_wake()` issue the panel's Sleep-In/Display-Off and Sleep-Out/Display-On sequences; plus `bsp_display_clear_black()` and `bsp_display_brightness_get()`.
+- **DMA-capable PSRAM draw buffer** — the LVGL draw buffer is allocated as DMA-capable PSRAM (`buff_dma` + `buff_spiram`; the ESP32-S3 GDMA can DMA from PSRAM). The QSPI panel flushes directly from PSRAM with **no internal SPI bounce buffer**, keeping the chip's scarce internal RAM free for DMA descriptors and task stacks. This lets the LVGL buffer height be raised for UI speed without paying an internal-RAM penalty (the bounce buffer would be ~13 KB at a 16-line buffer).
 - **Light-sleep friendly audio** — the I²S RX (mic) channel is initialised but left disabled by default so it doesn't hold an APB power-management lock that would block light sleep.
 - **Robustness** — I²C helpers log on failure instead of silently returning `0`; SD-card mount/unmount handle reset correctly. A code audit ([AUDIT.md](AUDIT.md)) and a per-file integrity manifest ([CHECKSUMS.json](CHECKSUMS.json)) are tracked in-tree.
 
@@ -61,7 +62,7 @@ This board uses an AXP2101 PMU. The BSP exposes per-rail enable control for the 
 - ESP-IDF **≥ 5.3**
 - Target: **esp32s3** (8 MB PSRAM, 32 MB flash)
 - LVGL **≥ 8, < 10** (the BSP ships with LVGL enabled; build the `noglib` flow if you want it excluded)
-- PSRAM (used for LVGL draw buffers)
+- PSRAM (the LVGL draw buffer is allocated as DMA-capable PSRAM — see [What this fork adds](#what-this-fork-adds))
 
 Pulled-in dependencies (see [idf_component.yml](idf_component.yml)): `waveshare/esp_lcd_sh8601`, `esp_lcd_touch_ft5x06`, `esp_lcd_panel_io_additions`, `espressif/esp_lvgl_port`, `esp_codec_dev`, `lvgl/lvgl`.
 

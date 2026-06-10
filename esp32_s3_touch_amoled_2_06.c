@@ -732,10 +732,15 @@ static lv_display_t *bsp_display_lcd_init()
         },
         .flags = {
             .sw_rotate = true,
-            .buff_dma = false,
-#if CONFIG_BSP_DISPLAY_LVGL_PSRAM
-            .buff_spiram = false,
-#endif
+            // ESP32-S3 GDMA can DMA directly from PSRAM (SOC_PSRAM_DMA_CAPABLE=1),
+            // so the LVGL draw buffer is placed in PSRAM *and* marked DMA-capable.
+            // The QSPI panel then flushes straight from PSRAM with no internal SPI
+            // bounce buffer (esp_lcd setup_dma_priv_buffer), which otherwise costs
+            // ~410*BUF_HEIGHT*2 bytes of internal RAM per flush (~13 KB at height
+            // 16). Keeps scarce internal RAM free for DMA/stacks and lets the draw
+            // buffer height be tuned for UI speed with no internal-RAM penalty.
+            .buff_dma = true,
+            .buff_spiram = true,
 #if CONFIG_BSP_DISPLAY_LVGL_FULL_REFRESH
             .full_refresh = 1,
 #elif CONFIG_BSP_DISPLAY_LVGL_DIRECT_MODE
