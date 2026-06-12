@@ -298,8 +298,19 @@ esp_err_t bsp_power_rail_enable(bsp_power_rail_t rail, bool on)
         return ESP_ERR_NOT_ALLOWED;
     }
     uint8_t mask = (uint8_t)(1u << s_rail_map[rail].bit);
-    return on ? axp2101_set_bits(s_pmu_dev, s_rail_map[rail].reg, mask)
-              : axp2101_clear_bits(s_pmu_dev, s_rail_map[rail].reg, mask);
+    // Serialize the read-modify-write: ALDO1-4 (and BLDO/CPUSLDO/DLDO1) all
+    // share REG_LDO_ONOFF_CTRL0, and rail toggles come from different tasks
+    // (display sleep/wake on the task_coordinator/UI tasks, audio open/close
+    // on the audio tasks). set_bits/clear_bits is two I2C transactions —
+    // without the mutex, interleaved RMWs lose updates: a display rail left
+    // ON after sleep (power regression) or ALDO3 dropped mid-playback.
+    // s_mutex is guaranteed non-NULL whenever s_ready is true (bsp_power_init
+    // creates it before setting s_ready); held only across two short I2C ops.
+    xSemaphoreTake(s_mutex, portMAX_DELAY);
+    esp_err_t err = on ? axp2101_set_bits(s_pmu_dev, s_rail_map[rail].reg, mask)
+                       : axp2101_clear_bits(s_pmu_dev, s_rail_map[rail].reg, mask);
+    xSemaphoreGive(s_mutex);
+    return err;
 }
 
 int bsp_power_rail_is_enabled(bsp_power_rail_t rail)
