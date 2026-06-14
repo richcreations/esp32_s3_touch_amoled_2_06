@@ -20,8 +20,8 @@
     },
     {
       "path": "README.md",
-      "size": 11052,
-      "hash": "2ffc3f682798205b7f7916b104f3ac549809f2663412dc5a2072a48149a18044"
+      "size": 11387,
+      "hash": "80a556d52630da763b9901c78e0f9e3532727a8abd51397b5cd8ad53afe7d640"
     },
     {
       "path": "axp2101.c",
@@ -55,8 +55,8 @@
     },
     {
       "path": "esp32_s3_touch_amoled_2_06.c",
-      "size": 28576,
-      "hash": "0626ee726dbf3e079dc9c96f97c106cb1e7893325974ecd339632f6fb6792252"
+      "size": 29001,
+      "hash": "fad613f748797bf80c4c283e3b447b5cfbedcbe88d9ee59b375b708879646fc3"
     },
     {
       "path": "idf_component.yml",

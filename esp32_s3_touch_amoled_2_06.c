@@ -758,15 +758,20 @@ static lv_display_t *bsp_display_lcd_init()
         },
         .flags = {
             .sw_rotate = true,
-            // ESP32-S3 GDMA can DMA directly from PSRAM (SOC_PSRAM_DMA_CAPABLE=1),
-            // so the LVGL draw buffer is placed in PSRAM *and* marked DMA-capable.
-            // The QSPI panel then flushes straight from PSRAM with no internal SPI
-            // bounce buffer (esp_lcd setup_dma_priv_buffer), which otherwise costs
-            // ~410*BUF_HEIGHT*2 bytes of internal RAM per flush (~13 KB at height
-            // 16). Keeps scarce internal RAM free for DMA/stacks and lets the draw
-            // buffer height be tuned for UI speed with no internal-RAM penalty.
+            // Draw buffer in INTERNAL DMA-capable RAM (single-buffered, ~13 KB at
+            // BUF_HEIGHT=16) — NOT PSRAM. Stock esp_lcd never sets
+            // SPI_TRANS_DMA_USE_PSRAM on the color transaction, so spi_master treats
+            // a PSRAM source as non-DMA and mallocs a fresh ~13 KB INTERNAL bounce
+            // buffer *per flush* (setup_dma_priv_buffer). Under load (BLE controller
+            // + WiFi + SignalK all holding internal RAM) that malloc fails — endless
+            // "setup_dma_priv_buffer: Failed to allocate priv TX buffer" + a blank
+            // screen. Internal makes esp_ptr_dma_capable() true — spi_master DMAs
+            // straight from it, no bounce ever. Allocated once here (before any radio
+            // starts), so the 13 KB is reserved for the display and never loses the
+            // allocation race. Net internal ~flat vs the bounce, but deterministic.
+            // (To reclaim the 13 KB: patch esp_lcd to set SPI_TRANS_DMA_USE_PSRAM.)
             .buff_dma = true,
-            .buff_spiram = true,
+            .buff_spiram = false,
 #if CONFIG_BSP_DISPLAY_LVGL_FULL_REFRESH
             .full_refresh = 1,
 #elif CONFIG_BSP_DISPLAY_LVGL_DIRECT_MODE
