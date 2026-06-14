@@ -55,8 +55,8 @@
     },
     {
       "path": "esp32_s3_touch_amoled_2_06.c",
-      "size": 29001,
-      "hash": "fad613f748797bf80c4c283e3b447b5cfbedcbe88d9ee59b375b708879646fc3"
+      "size": 28883,
+      "hash": "b695c9f865e657f6472295a5e9fba81664f24d0d0d48cc52b5ec2869423b0a45"
     },
     {
       "path": "idf_component.yml",
