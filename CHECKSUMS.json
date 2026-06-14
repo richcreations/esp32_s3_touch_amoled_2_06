@@ -5,8 +5,8 @@
   "files": [
     {
       "path": "CMakeLists.txt",
-      "size": 291,
-      "hash": "ac77af38c7c35192c3ae0dff4dcc381f9c5210df43dba2789a9bf579ff1dd957"
+      "size": 567,
+      "hash": "616d61947fe60a7a6cee1e095be5187a1c1bc47b98a30c1967aa20828bd96c91"
     },
     {
       "path": "Kconfig",
@@ -20,8 +20,8 @@
     },
     {
       "path": "README.md",
-      "size": 11387,
-      "hash": "80a556d52630da763b9901c78e0f9e3532727a8abd51397b5cd8ad53afe7d640"
+      "size": 11571,
+      "hash": "6fb5ed1de49d6930a6cf37b76f1781d8f6692cdbdb0237a815235aa123966d4f"
     },
     {
       "path": "axp2101.c",
@@ -32,6 +32,16 @@
       "path": "axp2101.h",
       "size": 5517,
       "hash": "98b1017e8eb220c81f39b506d92aa322b76669cacf28dbd0ad29a6870abc5dce"
+    },
+    {
+      "path": "bsp_lcd_io_psram_spi.c",
+      "size": 21451,
+      "hash": "68353e9a368081e0e7613c12e792885de3ed5467c4caf46d0707ac553074d872"
+    },
+    {
+      "path": "bsp_lcd_io_psram_spi.h",
+      "size": 835,
+      "hash": "86271f432f137ec9e112ee22a6841f5f73bd5d1108418801b5d84439195010da"
     },
     {
       "path": "doc/ESP32-S3-Touch-AMOLED-2.06-schematic.pdf",
@@ -55,8 +65,8 @@
     },
     {
       "path": "esp32_s3_touch_amoled_2_06.c",
-      "size": 28883,
-      "hash": "b695c9f865e657f6472295a5e9fba81664f24d0d0d48cc52b5ec2869423b0a45"
+      "size": 28966,
+      "hash": "089d9a3a6f6bf64c9615a5167d21820b4e9c48d0aa43257452e4782b7ad5977f"
     },
     {
       "path": "idf_component.yml",
