@@ -22,7 +22,6 @@
 #include "esp_event.h"
 #include "bsp_err_check.h"
 #include "bsp/display.h"
-#include "bsp_lcd_io_psram_spi.h"   // PSRAM-direct LCD flush (no internal bounce)
 #include "bsp/touch.h"
 
 
@@ -675,7 +674,7 @@ esp_err_t bsp_display_new(const bsp_display_config_t *config, esp_lcd_panel_hand
             .use_qspi_interface = 1,
         },
     };
-    ESP_RETURN_ON_ERROR(bsp_lcd_new_panel_io_spi((esp_lcd_spi_bus_handle_t)BSP_LCD_SPI_NUM, &io_config, &io_handle), TAG, "LCD panel IO init failed");
+    ESP_RETURN_ON_ERROR(esp_lcd_new_panel_io_spi((esp_lcd_spi_bus_handle_t)BSP_LCD_SPI_NUM, &io_config, &io_handle), TAG, "LCD panel IO init failed");
     const esp_lcd_panel_dev_config_t panel_config = {
         .reset_gpio_num = BSP_LCD_RST,
         .rgb_ele_order = LCD_RGB_ELEMENT_ORDER_RGB,

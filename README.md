@@ -31,7 +31,6 @@ Relative to a stock Waveshare/joaquimorg BSP:
 - **AXP2101 power management** — a complete `bsp_power_*` API (no XPowersLib C++ dependency): battery %, battery/VBUS/system voltage, die temperature, charge/VBUS state, rail control (DC1, ALDO1–4), and PWR-key short-press detection.
 - **Power events** — register a callback (`bsp_power_register_event_cb`) and/or consume an ESP-IDF event base (`BSP_POWER_EVENT_BASE`) for VBUS insert/remove and charge start/done. State is refreshed on demand via `bsp_power_refresh_state()` (no dedicated polling task).
 - **Display sleep/wake** — `bsp_display_sleep()` / `bsp_display_wake()` issue the panel's Sleep-In/Display-Off and Sleep-Out/Display-On sequences; plus `bsp_display_clear_black()` and `bsp_display_brightness_get()`.
-- **PSRAM-direct LCD flush (custom QSPI panel IO)** — the LVGL draw buffer stays in PSRAM (`buff_spiram = true`), and the BSP ships its own SPI/QSPI panel IO ([`bsp_lcd_io_psram_spi.c`](bsp_lcd_io_psram_spi.c)) — a vendored copy of ESP-IDF's `esp_lcd_panel_io_spi.c` with one change: it sets `SPI_TRANS_DMA_USE_PSRAM` on the color transaction. Stock esp_lcd never sets that flag, so a PSRAM buffer is treated as non-DMA and spi_master `malloc`s a fresh ~13 KB **internal** bounce buffer on **every** flush — which fails under radio load (BLE + WiFi + SignalK) with `setup_dma_priv_buffer: Failed to allocate priv TX buffer` and a blank/garbled screen. With the flag, GDMA reads straight from PSRAM (or bounces through a **PSRAM**-allocated copy), so a flush uses **zero internal RAM** and the image is clean. Display init calls `bsp_lcd_new_panel_io_spi()` instead of `esp_lcd_new_panel_io_spi()`. The vendored file is coupled to IDF 5.5.4 — re-sync it on an IDF upgrade.
 - **Light-sleep friendly audio** — the I²S RX (mic) channel is initialised but left disabled by default so it doesn't hold an APB power-management lock that would block light sleep.
 - **Robustness** — I²C helpers log on failure instead of silently returning `0`; SD-card mount/unmount handle reset correctly. A code audit ([AUDIT.md](AUDIT.md)) and a per-file integrity manifest ([CHECKSUMS.json](CHECKSUMS.json)) are tracked in-tree.
 
@@ -62,7 +61,7 @@ This board uses an AXP2101 PMU. The BSP exposes per-rail enable control for the 
 - ESP-IDF **≥ 5.3**
 - Target: **esp32s3** (8 MB PSRAM, 32 MB flash)
 - LVGL **≥ 8, < 10** (the BSP ships with LVGL enabled; build the `noglib` flow if you want it excluded)
-- PSRAM (holds the LVGL draw buffer, flushed via the custom PSRAM-direct panel IO — see [What this fork adds](#what-this-fork-adds))
+- PSRAM (holds the LVGL draw buffer)
 
 Pulled-in dependencies (see [idf_component.yml](idf_component.yml)): `waveshare/esp_lcd_sh8601`, `esp_lcd_touch_ft5x06`, `esp_lcd_panel_io_additions`, `espressif/esp_lvgl_port`, `esp_codec_dev`, `lvgl/lvgl`.
 
